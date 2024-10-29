@@ -19,7 +19,7 @@ netns()
 
         # Execute commands within the namespaces like:
 	# ip netns exec ns_tx iperf -s -B 169.254.0.1
-	# ip netns exec ns_rx iperf -c 169.254.0.1 -B 169.254.0.4
+	# ip netns exec ns_rx iperf -c 169.254.0.1 -B 169.254.1.4
 }
 
 xdp-net()
@@ -28,15 +28,20 @@ xdp-net()
         #ip addr add 10.0.0.2/24 dev ens16f0np0
         #ip addr add 10.0.1.3/24 dev ens16f1np1
 
+	# Static IP for ens16f0np0
 	nmcli conn modify "Wired connection 1" ipv4.addresses "169.254.0.2/24"
 	nmcli conn modify "Wired connection 1" ipv4.method manual
 	nmcli conn down "Wired connection 1"
 	nmcli conn up "Wired connection 1"
 
+	# Static IP for ens16f1np1
 	nmcli conn modify "Wired connection 2" ipv4.addresses "169.254.1.3/24"
 	nmcli conn modify "Wired connection 2" ipv4.method manual
 	nmcli conn down "Wired connection 2"
 	nmcli conn up "Wired connection 2"
+
+	# Limit link speed to 1Gb/s on ens16f1np1
+	ethtool -s ens16f1np1 speed 1000
 }
 
 # Execute argument
