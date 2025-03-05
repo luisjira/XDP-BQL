@@ -24,7 +24,7 @@ netns()
 	ip netns exec ns_tx ip -6 neighbor add fd00::2 lladdr 1c:34:da:54:9a:a4 dev cx5if1
 
         ip link set cx5if0 netns ns_rx
-	ip netns exec ns_tx ip addr flush dev cx5if0
+	ip netns exec ns_rx ip addr flush dev cx5if0
 	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/64
         ip netns exec ns_rx ip link set dev cx5if0 up
         ip netns exec ns_rx ip route add fd00::/64 via fd00:0:0:1::3
