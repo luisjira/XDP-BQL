@@ -2,8 +2,14 @@
 set -x
 
 netns()
-{
-        # Initialize new network namespaces
+{	
+	# Remove old configuration
+	if ip netns list | grep -q .; then
+	    ip netns del ns_tx
+	    ip netns del ns_rx
+	fi
+	
+	# Initialize new network namespaces
         ip netns add ns_tx
         ip netns add ns_rx
 
