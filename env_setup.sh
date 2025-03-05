@@ -9,12 +9,14 @@ netns()
 
         # Add interfaces to namespaces
         ip link set cx5if1 netns ns_tx
-	ip netns exec ns_tx ip addr add dev cx5if1 fd00::1/63
+	ip netns exec ns_tx ip addr add dev cx5if1 fd00::1/64
+	ip route add fd00:0:0:1::/64 via fd00::2
         ip netns exec ns_tx ip link set dev cx5if1 up
-	ip netns exec ns_tx ip -6 neighbor add fd00::2 lladdr 1c:34:da:54:9a:a4 dev cx5if1
+	ip netns exec ns_tx ip -6 neighbor add fd00:0:0:1::4 lladdr 1c:34:da:54:9a:a4 dev cx5if1
 
         ip link set cx5if0 netns ns_rx
-	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/63
+	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/64
+	ip route add fd00::/64 via fd00:0:0:1::3
         ip netns exec ns_rx ip link set dev cx5if0 up
 	ip netns exec ns_rx ip -6 neighbor add fd00:0:0:1::3 lladdr 1c:34:da:54:9a:a5 dev cx5if0
 
@@ -34,6 +36,8 @@ xdp-net()
 	ip addr flush dev ens16f0np0
 	ip addr add fd00:0:0:0::2/64 dev ens16f0np0
         ip link set up dev ens16f0np0
+	# sysctl -w net.ipv6.conf.ens16f0np0.forwarding=1
+	# sysctl -w net.ipv6.conf.ens16f0np0.proxy_ndp=1
 
 	# Static IP for ens16f1np1
 	nmcli device set ens16f1np1 managed no
