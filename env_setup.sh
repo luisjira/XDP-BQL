@@ -2,13 +2,15 @@
 set -x
 
 netns()
-{	
-	# Remove old configuration
+{
+        # Remove old configuration
 	if ip netns list | grep -q .; then
 	    ip netns del ns_tx
 	    ip netns del ns_rx
+            echo "Waiting for interface reset"
+            sleep 1
 	fi
-	
+
 	# Initialize new network namespaces
         ip netns add ns_tx
         ip netns add ns_rx
@@ -16,14 +18,14 @@ netns()
         # Add interfaces to namespaces
         ip link set cx5if1 netns ns_tx
 	ip netns exec ns_tx ip addr add dev cx5if1 fd00::1/64
-	ip netns exec ns_tx ip route add fd00:0:0:1::/64 via fd00::2
         ip netns exec ns_tx ip link set dev cx5if1 up
+        ip netns exec ns_tx ip route add fd00:0:0:1::/64 via fd00::2
 	ip netns exec ns_tx ip -6 neighbor add fd00:0:0:1::4 lladdr 1c:34:da:54:9a:a4 dev cx5if1
 
         ip link set cx5if0 netns ns_rx
 	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/64
-	ip netns exec ns_rx ip route add fd00::/64 via fd00:0:0:1::3
         ip netns exec ns_rx ip link set dev cx5if0 up
+        ip netns exec ns_rx ip route add fd00::/64 via fd00:0:0:1::3
 	ip netns exec ns_rx ip -6 neighbor add fd00:0:0:1::3 lladdr 1c:34:da:54:9a:a5 dev cx5if0
 
         # Execute commands within the namespaces like:
