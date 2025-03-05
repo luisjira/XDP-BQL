@@ -26,7 +26,7 @@ netns()
 	ip netns exec ns_tx arp -s 169.254.1.4 1c:34:da:54:9a:a4
 
         ip link set cx5if0 netns ns_rx
-	ip netns exec ns_tx ip addr flush dev cx5if0
+	ip netns exec ns_rx ip addr flush dev cx5if0
 	ip netns exec ns_rx ip addr add dev cx5if0 169.254.1.4/16
 	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/64
         ip netns exec ns_rx ip link set dev cx5if0 up
