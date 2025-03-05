@@ -52,7 +52,7 @@ xdp-net()
 	ip addr add 169.254.0.2/24 dev ens16f0np0
         ip link set up dev ens16f0np0
 	ip -6 neighbor add fd00::1 lladdr b8:83:03:6f:63:51 dev ens16f0np0
-	ip netns exec ns_rx arp -s 169.254.0.1 b8:83:03:6f:63:51
+	arp -s 169.254.0.1 b8:83:03:6f:63:51
 	sysctl -w net.ipv6.conf.ens16f0np0.forwarding=1
 	sysctl -w net.ipv4.conf.ens16f0np0.forwarding=1
 
@@ -63,12 +63,12 @@ xdp-net()
 	ip addr add 169.254.1.3/24 dev ens16f1np1
         ip link set up dev ens16f1np1
 	ip -6 neighbor add fd00:0:0:1::4 lladdr b8:83:03:6f:63:50 dev ens16f1np1
-	ip netns exec ns_rx arp -s 169.254.1.3 b8:83:03:6f:63:50
+	arp -s 169.254.1.4 b8:83:03:6f:63:50
 	sysctl -w net.ipv6.conf.ens16f1np1.forwarding=1
 	sysctl -w net.ipv4.conf.ens16f1np1.forwarding=1
 
 	# Limit link speed to 1Gb/s on ens16f1np1
-	ethtool -s ens16f1np1 speed 1000
+	# ethtool -s ens16f1np1 speed 1000
 }
 
 # Execute argument
