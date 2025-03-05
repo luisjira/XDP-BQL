@@ -18,17 +18,21 @@ netns()
         # Add interfaces to namespaces
         ip link set cx5if1 netns ns_tx
 	ip netns exec ns_tx ip addr flush dev cx5if1
+	ip netns exec ns_tx ip addr add dev cx5if1 169.254.0.1/16
 	ip netns exec ns_tx ip addr add dev cx5if1 fd00::1/64
         ip netns exec ns_tx ip link set dev cx5if1 up
         ip netns exec ns_tx ip route add fd00:0:0:1::/64 via fd00::2
 	ip netns exec ns_tx ip -6 neighbor add fd00::2 lladdr 1c:34:da:54:9a:a4 dev cx5if1
+	ip netns exec ns_tx arp -s 169.254.1.4 1c:34:da:54:9a:a4
 
         ip link set cx5if0 netns ns_rx
 	ip netns exec ns_tx ip addr flush dev cx5if0
+	ip netns exec ns_rx ip addr add dev cx5if0 169.254.1.4/16
 	ip netns exec ns_rx ip addr add dev cx5if0 fd00:0:0:1::4/64
         ip netns exec ns_rx ip link set dev cx5if0 up
         ip netns exec ns_rx ip route add fd00::/64 via fd00:0:0:1::3
 	ip netns exec ns_rx ip -6 neighbor add fd00:0:0:1::3 lladdr 1c:34:da:54:9a:a5 dev cx5if0
+	ip netns exec ns_rx arp -s 169.254.0.1 1c:34:da:54:9a:a5
 
         # Execute commands within the namespaces like:
 	# ip netns exec ns_tx iperf -s -B 169.254.0.1
@@ -45,17 +49,23 @@ xdp-net()
 	nmcli device set ens16f0np0 managed no
 	ip addr flush dev ens16f0np0
 	ip addr add fd00:0:0:0::2/64 dev ens16f0np0
+	ip addr add 169.254.0.2/24 dev ens16f0np0
         ip link set up dev ens16f0np0
 	ip -6 neighbor add fd00::1 lladdr b8:83:03:6f:63:51 dev ens16f0np0
-	# sysctl -w net.ipv6.conf.ens16f0np0.forwarding=1
-	# sysctl -w net.ipv6.conf.ens16f0np0.proxy_ndp=1
+	ip netns exec ns_rx arp -s 169.254.0.1 b8:83:03:6f:63:51
+	sysctl -w net.ipv6.conf.ens16f0np0.forwarding=1
+	sysctl -w net.ipv4.conf.ens16f0np0.forwarding=1
 
 	# Static IP for ens16f1np1
 	nmcli device set ens16f1np1 managed no
 	ip addr flush dev ens16f1np1
 	ip addr add fd00:0:0:1::3/64 dev ens16f1np1
+	ip addr add 169.254.1.3/24 dev ens16f1np1
         ip link set up dev ens16f1np1
 	ip -6 neighbor add fd00:0:0:1::4 lladdr b8:83:03:6f:63:50 dev ens16f1np1
+	ip netns exec ns_rx arp -s 169.254.1.3 b8:83:03:6f:63:50
+	sysctl -w net.ipv6.conf.ens16f1np1.forwarding=1
+	sysctl -w net.ipv4.conf.ens16f1np1.forwarding=1
 
 	# Limit link speed to 1Gb/s on ens16f1np1
 	ethtool -s ens16f1np1 speed 1000
