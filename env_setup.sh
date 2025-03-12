@@ -71,5 +71,17 @@ xdp-net()
 	# ethtool -s ens16f1np1 speed 1000
 }
 
+limit()
+{
+	ethtool -s ens16f0np0 speed 10000
+	ethtool -s ens16f1np1 speed 1000
+}
+
+unlimit()
+{
+	ethtool -s ens16f0np0 speed 100000
+	ethtool -s ens16f1np1 speed 100000
+}
+
 # Execute argument
 "$@"
