@@ -27,14 +27,24 @@ xdp-bql()
     git checkout xdp-forward-bql
 }
 
-xdp-queueing()
+xdp-q()
 {
     git checkout xdp-forward-queueing
+}
+
+xdp-q-icmp()
+{
+    git checkout xdp-forward-queueing-icmp
 }
 
 xdp()
 {
     git checkout master
+}
+
+xdp-icmp()
+{
+    git checkout master-icmp
 }
 
 kernel()
