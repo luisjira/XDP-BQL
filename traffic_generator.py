@@ -8,11 +8,11 @@ def generate_udp_packets(num_packets, payload_size, destination="fd00:0:0:1::4",
     if payload_size:
          s = RandString(size=payload_size)
          for i in range(num_packets):
-            packet = IPv6(dst=destination) / UDP(dport=port, sport=port) / Raw(load=s)
+            packet = Ether(dst="1c:34:da:54:9a:a4", src="b8:83:03:6f:63:51") / IPv6(dst=destination) / UDP(dport=port, sport=port) / Raw(load=s)
             sendp(packet, iface="cx5if1", verbose=False)
     else:
         for i in range(num_packets):
-            packet = IPv6(dst=destination) / UDP(dport=port, sport=port) / Raw(load="Test Packet "+str(i)+"\n")
+            packet = Ether(dst="1c:34:da:54:9a:a4", src="b8:83:03:6f:63:51") / IPv6(dst=destination) / UDP(dport=port, sport=port) / Raw(load="Test Packet "+str(i)+"\n")
             sendp(packet, iface="cx5if1", verbose=False)
 
     print(f"Sent {num_packets} UDP packets to {destination}:{port} in {time.time()-start_time}s")
