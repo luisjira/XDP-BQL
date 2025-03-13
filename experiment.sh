@@ -39,15 +39,16 @@ kernel()
     exit 0
 }
 
-
+RES=" "
 # Load forwarding schemes and run test loaded/unloaded
 for fwd in "${FWDS[@]}"
 do
-    ssh nslrackvm "sudo -E ~/XDP-BQL/fwd-loader.sh ${fwd}"
+    ssh -F ~/.ssh/config -i ~/.ssh/id_rsa -o UserKnownHostsFile=~/.ssh/known_hosts nslrackvm "sudo -E ~/XDP-BQL/fwd-loader.sh ${fwd}"
     if test_conn_v6 && test_conn_v4; then
-        echo "$fwd is reachable"
+        RES="$RES $fwd is reachable"
     else
-        echo "$fwd is unreachable"
+        RES="$RES $fwd is unreachable"
     fi
 done
+echo "$RES"
 
