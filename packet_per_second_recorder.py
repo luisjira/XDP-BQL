@@ -13,11 +13,11 @@ def get_rx_packets(interface):
         return None
 
 
-def monitor_rx_packets(interface, out, interval=1, duration=60):
+def monitor_rx_packets(interface, out, interval=1, duration=10):
     """Monitor RX packets per second and save to CSV."""
     if out is None:
         out = f"pps_{interface}.csv"
-    
+
     with open(out, "w", newline="") as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerow(["Timestamp", "Packets_per_second"])
@@ -26,6 +26,8 @@ def monitor_rx_packets(interface, out, interval=1, duration=60):
         if prev_packets is None:
             return
 
+        total = 0
+
         for _ in range(duration):
             time.sleep(interval)
             current_packets = get_rx_packets(interface)
@@ -33,10 +35,12 @@ def monitor_rx_packets(interface, out, interval=1, duration=60):
                 continue
 
             pps = current_packets - prev_packets
+            total += pps
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             csv_writer.writerow([timestamp, pps])
             print(f"{timestamp} - Packets per second: {pps}")
             prev_packets = current_packets
+        print(f"Average: {total/duration}")
 
 
 if __name__ == "__main__":
