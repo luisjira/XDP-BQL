@@ -31,6 +31,30 @@ test_conn()
     return $?
 }
 
+start_trafficgen()
+{
+    if $LOADED; then
+       LOADED=loaded
+       ip netns exec ns_tx ~/xdp-tools/xdp-trafficgen/xdp-trafficgen udp \
+          -A fd00::1 \
+          -m 1c:34:da:54:9a:a4 \
+          -a fd00:0:0:1::4 \
+          -p 12345 \
+          -d $PACKET_SIZE \
+          -t $TRAFFIC_THREADS \
+          $NS_TX_IF > /dev/null &
+       trafficgen_pid=$!
+       sleep 5 # Wait for traffic
+   else
+      LOADED=unloaded
+   fi
+}
+
+kill_trafficgen()
+{
+    kill $trafficgen_pid
+}
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -109,8 +133,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Set link speed
-$SSH_CMD $XDP_HOST "sudo ethtool -s ens16f1np1 speed $LINK_SPEED_TX"
-$SSH_CMD $XDP_HOST "sudo ethtool -s ens16f0np0 speed $LINK_SPEED_RX"
+$SSH_CMD $XDP_HOST "sudo ethtool -s $XDP_TX_IF speed $LINK_SPEED_TX"
+$SSH_CMD $XDP_HOST "sudo ethtool -s $XDP_RX_IF speed $LINK_SPEED_RX"
 LINK_SPEED_RX="$(( ${LINK_SPEED_RX} / 1000 ))G"
 sleep 10 # Give time for autonegotiation
 
@@ -122,21 +146,10 @@ else
 fi
 
 if test_conn ns_rx fd00:0:0:1::3; then
-    echo "ns_rx cannot reach $XDP_HOST"
-fi
-
-if $LOADED; then
-    LOADED=loaded
-    ip netns exec ns_tx ~/xdp-tools/xdp-trafficgen/xdp-trafficgen udp \
-        -A fd00::1 -m 1c:34:da:54:9a:a4 \
-        -a fd00:0:0:1::4 \
-        -p 12345 \
-        -d $PACKET_SIZE \
-        -t $TRAFFIC_THREADS \
-        $NS_TX_IF > /dev/null &
-   trafficgen_pid=$!
+    echo "ns_rx reached $XDP_HOST"
 else
-    LOADED=unloaded
+    echo "ns_rx cannot reach $XDP_HOST"
+    exit 1
 fi
 
 source $PYENV_PATH/activate > /dev/null 2>&1
@@ -153,11 +166,16 @@ do
         SUMMARY="$SUMMARY | $fwd is broken"
         continue
     fi
+
+    start_trafficgen
+
     sudo -E ip netns exec ns_rx ${PYENV_PATH}/python3 ./packet_per_second_recorder.py \
         $NS_RX_IF -w pps_${fwd}_${D_PORT}${LOADED}${PACKET_SIZE}B_link${LINK_SPEED_RX}.csv
 
     sudo -E ip netns exec ns_tx ${PYENV_PATH}/python3 ./ping_logger.py fd00:0:0:1::4 \
         ping-${PACKET_SIZE}B-${LINK_SPEED_RX}-${D_PORT}${LOADED}-${fwd}.dat
+
+    kill_trafficgen
 done
 echo "$SUMMARY"
 
