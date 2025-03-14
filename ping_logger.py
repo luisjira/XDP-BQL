@@ -5,7 +5,7 @@ import re
 def ping_host(host, output_file, count=1000, interval=0.01):
     try:
         # Determine IPv4 or IPv6 and construct the ping command
-        command = ["ping -i", str(interval), "-c", str(count), host]
+        command = ["ping", "-i", str(interval), "-c", str(count), host]
 
         # Execute the ping command
         result = subprocess.run(command, capture_output=True, text=True)
