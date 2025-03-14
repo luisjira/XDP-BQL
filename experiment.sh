@@ -4,10 +4,11 @@ set -x
 ### GENERAL SETUP ###
 FWDS=('kernel' 'xdp' 'xdp-icmp' 'xdp-q' 'xdp-q-icmp' 'xdp-bql' 'xdp-bql-icmp')
 XDP_HOST=nslrackvm  # Remote forwarding host, assumed to have this dir in ~
-SSH_CMD='ssh -F ~/.ssh/config -i ~/.ssh/id_rsa -o UserKnownHostsFile=~/.ssh/known_hosts'
-PYENV_PATH='~/myenv/bin/' # env must have argparse installed
-XDP_TX_IF=ens16f1np1
-XDP_RX_IF=ens16f0np0
+SSH_CONF_PATH='/home/ljira/.ssh'
+SSH_CMD="ssh -F ${SSH_CONF_PATH}/config -i ${SSH_CONF_PATH}/id_rsa -o UserKnownHostsFile=${SSH_CONF_PATH}/known_hosts"
+PYENV_PATH='/home/ljira/myenv/bin' # env must have argparse installed
+XDP_TX_IF=ens16f0np0
+XDP_RX_IF=ens16f1np1
 NS_TX_IF=cx5if1
 NS_RX_IF=cx5if0
 
@@ -22,15 +23,11 @@ LINK_SPEED_RX=1000  # link speed on rx subnet
 LINK_SPEED_TX=10000 # link speed on tx subnet
 LINK_MAX=100000     # max link speed
 
-test_conn_v6()
+# Test if netns $1 can ping host $2
+# At least 1 from 100 pings has to complete
+test_conn()
 {
-    ip netns exec ns_tx ping -i 0.01 -c 100 -6  fd00:0:0:1::4 > /dev/null 2>&1
-    return $?
-}
-
-test_conn_v4()
-{
-    ip netns exec ns_tx ping -i 0.01 -c 100 -4  169.254.1.4 > /dev/null 2>&1
+    ip netns exec $1 ping -i 0.01 -c 100  $2 > /dev/null 2>&1
     return $?
 }
 
@@ -42,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
 
-        -d) 
+        -d)
             if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
                 D_PORT=$2
                 shift 2
@@ -62,8 +59,8 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
 
-        -rx) 
-            if [[ -n "$2" && "$2" =~ ^[0-9]+$ && "$2" <= $LINK_MAX ]]; then
+        -rx)
+            if [[ -n "$2" && "$2" =~ ^[0-9]+$ && "$2" -le $LINK_MAX ]]; then
                 LINK_SPEED_RX=$2
                 shift 2
             else
@@ -73,7 +70,7 @@ while [[ $# -gt 0 ]]; do
             ;;
 
         -tx)
-            if [[ -n "$2" && "$2" =~ ^[0-9]+$ && "$2" <= $LINK_MAX ]]; then
+            if [[ -n "$2" && "$2" =~ ^[0-9]+$ && "$2" -le $LINK_MAX ]]; then
                 LINK_SPEED_TX=$2
                 shift 2
             else
@@ -115,31 +112,34 @@ done
 $SSH_CMD $XDP_HOST "sudo ethtool -s ens16f1np1 speed $LINK_SPEED_TX"
 $SSH_CMD $XDP_HOST "sudo ethtool -s ens16f0np0 speed $LINK_SPEED_RX"
 LINK_SPEED_RX="$(( ${LINK_SPEED_RX} / 1000 ))G"
+sleep 10 # Give time for autonegotiation
 
-ip netns exec ns_tx ping -i 0.01 -c 10 -6  fd00::2 > /dev/null 2>&1
-if $?; then
+if test_conn ns_tx fd00::2; then
+    echo "ns_tx reached $XDP_HOST"
+else
     echo "ns_tx cannot reach $XDP_HOST"
+    exit 1
 fi
 
-ip netns exec ns_rx ping -i 0.01 -c 10 -6  fd00:0:0:1::3 > /dev/null 2>&1
-if $?; then
+if test_conn ns_rx fd00:0:0:1::3; then
     echo "ns_rx cannot reach $XDP_HOST"
 fi
 
 if $LOADED; then
     LOADED=loaded
-    sudo -E ip netns exec ns_tx ./xdp-trafficgen udp \
+    ip netns exec ns_tx ~/xdp-tools/xdp-trafficgen/xdp-trafficgen udp \
         -A fd00::1 -m 1c:34:da:54:9a:a4 \
         -a fd00:0:0:1::4 \
         -p 12345 \
         -d $PACKET_SIZE \
         -t $TRAFFIC_THREADS \
-        $NS_TX_IF
+        $NS_TX_IF > /dev/null &
+   trafficgen_pid=$!
 else
     LOADED=unloaded
 fi
 
-source $PYENV_PATH/activate
+source $PYENV_PATH/activate > /dev/null 2>&1
 
 SUMMARY=" "
 # Load forwarding schemes and run test loaded/unloaded
@@ -147,17 +147,20 @@ for fwd in "${FWDS[@]}"
 do
     echo "Starting $fwd"
     $SSH_CMD $XDP_HOST "sudo -E ~/XDP-BQL/fwd-loader.sh ${fwd}"
-    if test_conn_v6 && test_conn_v4; then
-        SUMMARY="$SUMMARY | $fwd is reachable"
+    if test_conn ns_tx fd00:0:0:1::4 && test_conn ns_tx 169.254.1.4; then
+        SUMMARY="$SUMMARY | $fwd is forwarding"
     else
-        SUMMARY="$SUMMARY | $fwd is unreachable"
+        SUMMARY="$SUMMARY | $fwd is broken"
         continue
     fi
     sudo -E ip netns exec ns_rx ${PYENV_PATH}/python3 ./packet_per_second_recorder.py \
-        $NS_RX_IF -w pps_${fwd}_${D_PORT}${LOADED}${PACKET_SIZE}B_link${LINK_SPEED_RX}.out
-    
+        $NS_RX_IF -w pps_${fwd}_${D_PORT}${LOADED}${PACKET_SIZE}B_link${LINK_SPEED_RX}.csv
+
     sudo -E ip netns exec ns_tx ${PYENV_PATH}/python3 ./ping_logger.py fd00:0:0:1::4 \
         ping-${PACKET_SIZE}B-${LINK_SPEED_RX}-${D_PORT}${LOADED}-${fwd}.dat
 done
 echo "$SUMMARY"
 
+if [[ $trafficgen_pid ]]; then
+    kill $trafficgen_pid
+fi
