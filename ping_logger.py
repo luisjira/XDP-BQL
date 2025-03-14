@@ -2,25 +2,30 @@ import subprocess
 import sys
 import re
 
-def ping_host(host, output_file, count=1000):
-    with open(output_file, "w") as file:
-        for i in range(count):
-            try:
-                result = subprocess.run([
-                    "ping", "-c", "1", "-4" if ":" not in host else "-6", host
-                ], capture_output=True, text=True)
+def ping_host(host, output_file, count=1000, interval=0.01):
+    try:
+        # Determine IPv4 or IPv6 and construct the ping command
+        command = ["ping -i", str(interval), "-c", str(count), host]
 
-                match = re.search(r'time=([0-9.]+) ms', result.stdout)
-                if match:
-                    rtt = match.group(1)
-                    file.write(f"{rtt}\n")
-                    print(f"Ping {i+1}: {rtt} ms")
-                else:
-                    file.write("NaN\n")
-                    print(f"Ping {i+1}: Request timed out")
-            except Exception as e:
-                print(f"Error: {e}")
-                file.write("NaN\n")
+        # Execute the ping command
+        result = subprocess.run(command, capture_output=True, text=True)
+
+        # Extract RTT values from output
+        rtt_values = re.findall(r'time=([0-9.]+) ms', result.stdout)
+
+        # Extract packet loss percentage
+        loss_match = re.search(r'([0-9.]+)% packet loss', result.stdout)
+        packet_loss = loss_match.group(1) if loss_match else "Unknown"
+
+        # Write RTT values to output file
+        with open(output_file, "w") as file:
+            for rtt in rtt_values:
+                file.write(f"{rtt}\n")
+
+        print(f"Collected {len(rtt_values)} RTT values.")
+        print(f"Packet loss: {packet_loss}%")
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
