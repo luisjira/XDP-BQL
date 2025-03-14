@@ -48,7 +48,7 @@ if __name__ == "__main__":
     parser.add_argument("interface", help="Interface to collect counter from")
     parser.add_argument("-i","--interval", type=float, default=1, help="Interval to collect data in in seconds")
     parser.add_argument("-t","--duration", type=int, default=10, help="Time to collect data for in seconds")
-    parser.add_argument("-w","--output-file", type=int, help="Name of output file to write csv data to")
+    parser.add_argument("-w","--output-file", help="Name of output file to write csv data to")
 
     args = parser.parse_args()
 
